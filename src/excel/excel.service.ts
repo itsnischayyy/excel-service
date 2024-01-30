@@ -1,11 +1,12 @@
 // src/excel/excel.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import * as excelToJson from 'convert-excel-to-json';
+import * as fs from 'fs';
+import * as csvParser from 'csv-parser';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { promises as fsPromises } from 'fs';
 import { Excel } from './schemas/excel.entity';
-import * as xlsx from 'xlsx';
 import { UploadCount } from './schemas/upload.entity';
 
 @Injectable()
@@ -17,26 +18,24 @@ export class ExcelService {
     private readonly uploadCountRepository: Repository<UploadCount>,
   ) { }
 
-  async processExcel(file): Promise<any> {
+  async processFile(file): Promise<any> {
     try {
       if (!file || !file.filename) {
         throw new NotFoundException('No File');
       }
-      
 
       const filePath = `./uploads/${file.filename}`;
-      const excelData = excelToJson({
-        sourceFile: filePath,
-        header: {
-          rows: 1,
-        },
-        columnToKey: {
-          '*': '{{columnHeader}}',
-        },
-      });
+      const isCsv = file.originalname.endsWith('.csv');
+
+      let excelData;
+
+      if (isCsv) {
+        excelData = await this.processCsv(filePath);
+      } else {
+        excelData = await this.processExcel(filePath);
+      }
 
       const entries = [];
-
       const defaultValues = {
         name: null,
         parentname: null,
@@ -44,16 +43,14 @@ export class ExcelService {
         rollnumber: null,
         school: null,
         mobnum: null,
-        address: null
+        address: null,
+        class: null,
         // ... (Other fields with default values)
       };
-      
 
       // Extracting answers q1 to q20 and adding them to an "answers" array
       for (const entry of excelData.Sheet1) {
         const missingFields = [];
-
-
 
         // Check for missing fields and assign default values
         Object.keys(defaultValues).forEach((field) => {
@@ -86,15 +83,15 @@ export class ExcelService {
 
             existingRecord.updatecount = (existingRecord.updatecount || 0) + 1;
 
-            const updatedExcel = await this.excelRepository.save(existingRecord);
-            
-            console.log('🚀 ~ ExcelService ~ updatedExcel:', updatedExcel);
+            await this.excelRepository.save(existingRecord);
+
+            // console.log('🚀 ~ ExcelService ~ updatedExcel:', updatedExcel);
           } else {
             // Always create a new entity and save it to the database
             const newExcelEntity = this.excelRepository.create(entry);
             await this.excelRepository.save(newExcelEntity);
-            
-            console.log('🚀 ~ ExcelService ~ Entry saved to the database:', newExcelEntity);
+
+            // console.log('🚀 ~ ExcelService ~ Entry saved to the database:', newExcelEntity);
           }
         } catch (error) {
           // Log the error, but continue processing other entries
@@ -112,21 +109,50 @@ export class ExcelService {
       }
 
       if (entries.length > 0) {
-        return { status: 201,  message: 'Some entries have missing fields or database errors', entries };
+        return { status: 201, message: 'Some entries have missing fields or database errors', entries };
       } else if (excelData.Sheet1.length === 0) {
         return { status: 404, message: 'No data' };
       } else {
-        return { status:200, data: excelData.Sheet1 };
+        return { status: 200, data: excelData.Sheet1 };
       }
     } catch (error) {
       throw new NotFoundException(error.message);
     }
   }
 
+  private async processCsv(filePath: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const entries = [];
+      fs.createReadStream(filePath)
+        .pipe(csvParser())
+        .on('data', (row) => {
+          entries.push(row);
+        })
+        .on('end', () => {
+          resolve({ Sheet1: entries });
+        })
+        .on('error', (error) => {
+          reject(error);
+        });
+    });
+  }
+
+  private async processExcel(filePath: string): Promise<any> {
+    return excelToJson({
+      sourceFile: filePath,
+      header: {
+        rows: 1,
+      },
+      columnToKey: {
+        '*': '{{columnHeader}}',
+      },
+    });
+  }
+
   private async incrementUploadCount(): Promise<void> {
     // Fetch the dedicated UploadCount row from the database
-    let uploadCount = await this.uploadCountRepository.findOne({where:{id:1}});
-  
+    let uploadCount = await this.uploadCountRepository.findOne({ where: { id: 1 } });
+
     // If no record exists, create a new one with count set to 1
     if (!uploadCount) {
       uploadCount = new UploadCount();
@@ -136,7 +162,7 @@ export class ExcelService {
       // If a record exists, increment the count
       uploadCount.count += 1;
     }
-  
+
     // Save the updated UploadCount to the database
     await this.uploadCountRepository.save(uploadCount);
   }

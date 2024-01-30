@@ -25,8 +25,8 @@ export class Excel {
   @Column({ nullable: true })
   school: string;
 
-  @Column({type:'bigint', nullable: true })
-  mobnum: number;
+  @Column({nullable: true })
+  mobnum: string;
 
   @Column({ nullable: true })
   address: string;

@@ -18,7 +18,7 @@
 
         // const fileBuffer = file.buffer; // Extract the buffer from the file object
 
-        const result = await this.excelService.processExcel(file);
+        const result = await this.excelService.processFile(file);
         if (result.status === 200) {
           return { status: 200, data: result };
         } else if (result.status === 201) {
