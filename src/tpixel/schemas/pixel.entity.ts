@@ -18,6 +18,6 @@ export class Pixel {
   @Column()
   userAgent: string;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  timestamp: Date;
+  @Column()
+  timestamp: string;
 }

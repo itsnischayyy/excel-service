@@ -35,6 +35,9 @@ import { ConfigModule } from '@nestjs/config';
       type: 'postgres',
       url: process.env.DATABASE_URL, 
       synchronize: Boolean(process.env.DATABASE_SYNC),
+      extra: {
+        timezone: 'Asia/Kolkata', // Set the timezone to 'Asia/Kolkata'
+      },
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       ssl: {
         rejectUnauthorized: false, 

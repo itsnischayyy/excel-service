@@ -1,8 +1,7 @@
-// src/pixel/pixel.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Pixel } from './schemas/pixel.entity';
+import { Pixel } from './schemas/pixel.entity'; // Corrected import path
 
 @Injectable()
 export class PixelService {
@@ -18,21 +17,23 @@ export class PixelService {
   async updateUserTimestamp(id: number): Promise<void> {
     const user = await this.pixelRepository.findOne({ where: { id } });
     if (user) {
-      user.timestamp = new Date();
+      const now = new Date();
+      user.timestamp = `${now.toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata' })} ${now.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: false })}.${now.getMilliseconds()}`;
       await this.pixelRepository.save(user);
     }
   }
   
   async createUser(name: string, email: string, ipAddress: any, userAgent: any): Promise<void> {
+    const now = new Date();
     const user = this.pixelRepository.create({
       name,
       email,
       ipAddress,
       userAgent,
+      timestamp: `${now.toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata' })} ${now.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: false })}.${now.getMilliseconds()}`,
     });
     await this.pixelRepository.save(user);
   }
-  
 
   async getAllPixels(): Promise<Pixel[]> {
     return await this.pixelRepository.find();
